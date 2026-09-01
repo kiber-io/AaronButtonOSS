@@ -1,0 +1,13 @@
+<resources>
+    <style name="Base.Theme.AaronButtonOSS" parent="android:style/Theme.Material.Light.NoActionBar">
+    </style>
+
+    <style name="Theme.AaronButtonOSS" parent="Base.Theme.AaronButtonOSS" />
+
+    <style name="Theme.AaronButtonOSS.NfcTrigger" parent="android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+</resources>
