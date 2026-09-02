@@ -230,6 +230,7 @@ internal fun MainScreen(
     var selectedActionIndex by rememberSaveable { mutableStateOf(0) }
     var argument by rememberSaveable { mutableStateOf("") }
     var detailsSlot by rememberSaveable { mutableStateOf(-1) }
+    var detailsActionIndex by rememberSaveable { mutableStateOf(-1) }
     var customEditorSlot by rememberSaveable { mutableStateOf(-1) }
     val scrollState = rememberScrollState()
 
@@ -284,12 +285,15 @@ internal fun MainScreen(
                             highlighted = highlightedSlot == index && highlightToken > 0,
                             highlightToken = highlightToken,
                             onClick = {
-                                if (ACTIONS.getOrNull(configuredActions[index])?.code == CUSTOM_INTENT_PREFIX) {
+                                val actionIndex = configuredActions[index]
+                                if (ACTIONS.getOrNull(actionIndex)?.code == CUSTOM_INTENT_PREFIX) {
                                     detailsSlot = -1
+                                    detailsActionIndex = -1
                                     customEditorSlot = index
                                 } else {
                                     customEditorSlot = -1
                                     detailsSlot = index
+                                    detailsActionIndex = actionIndex
                                 }
                             }
                         )
@@ -322,7 +326,6 @@ internal fun MainScreen(
             }
 
             if (detailsSlot in 0 until SLOT_COUNT) {
-                val detailsActionIndex = configuredActions[detailsSlot]
                 if (detailsActionIndex in ACTIONS.indices && ACTIONS[detailsActionIndex].code != CUSTOM_INTENT_PREFIX) {
                     ActionDetailsSheet(
                         slotIndex = detailsSlot,
@@ -331,7 +334,10 @@ internal fun MainScreen(
                         writing = writing,
                         status = status,
                         writeFeedbackToken = writeFeedbackToken,
-                        onDismiss = { detailsSlot = -1 },
+                        onDismiss = {
+                            detailsSlot = -1
+                            detailsActionIndex = -1
+                        },
                         onSave = { editedArgument, onSuccess ->
                             onWrite(detailsActionIndex, editedArgument, detailsSlot, onSuccess)
                         },
