@@ -81,8 +81,9 @@
     <string name="termux_failed">Could not start Termux: %1$s</string>
     <string name="write_button">Write to button</string>
     <string name="write_button_short">Write</string>
-    <string name="ready">Ready</string>
+    <string name="ready">NFC ready</string>
     <string name="nfc_unavailable">NFC is unavailable on this device</string>
+    <string name="nfc_disabled">NFC is disabled</string>
     <string name="touch_tag">Hold any button near the phone</string>
     <string name="touch_target_button">Hold Button %1$d near the phone to save</string>
     <string name="touch_target_button_clear">Hold Button %1$d near the phone to disable it</string>

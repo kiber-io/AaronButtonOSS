@@ -97,7 +97,7 @@ open class MainActivity : ComponentActivity() {
         buttonSetupComplete = preferences.getBoolean(BUTTON_SETUP_COMPLETE, allTagIdsKnown) && allTagIdsKnown
         androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID).orEmpty()
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
-        status.value = getString(if (nfcAdapter == null) R.string.nfc_unavailable else R.string.ready)
+        refreshNfcStatus()
 
         if (!isNfcTrigger) {
             preferences.edit()
@@ -112,6 +112,7 @@ open class MainActivity : ComponentActivity() {
                     if (buttonSetupComplete) {
                         MainScreen(
                             status = status.value,
+                            nfcReady = nfcAdapter?.isEnabled == true,
                             language = language,
                             writing = writing,
                             configuredActions = configuredActions.value,
@@ -155,7 +156,18 @@ open class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         loadConfiguredState()
+        if (!writing) refreshNfcStatus()
         if ((writing || learning) && nfcAdapter != null) enableReaderMode()
+    }
+
+    private fun refreshNfcStatus() {
+        status.value = getString(
+            when {
+                nfcAdapter == null -> R.string.nfc_unavailable
+                nfcAdapter?.isEnabled != true -> R.string.nfc_disabled
+                else -> R.string.ready
+            }
+        )
     }
 
     private fun loadConfiguredState() {
@@ -285,7 +297,7 @@ open class MainActivity : ComponentActivity() {
             .remove(WRITE_BLOCK_UNTIL)
             .apply()
         stopReaderMode()
-        status.value = getString(R.string.ready)
+        refreshNfcStatus()
     }
 
     private fun enableReaderMode() {

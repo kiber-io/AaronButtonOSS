@@ -213,6 +213,7 @@ internal fun SetupWizard(
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun MainScreen(
     status: String,
+    nfcReady: Boolean,
     language: AppLanguage,
     writing: Boolean,
     configuredActions: List<Int>,
@@ -258,7 +259,7 @@ internal fun MainScreen(
                     .padding(horizontal = MdSpacing.medium, vertical = MdSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(MdSpacing.small)
             ) {
-                StatusCard(status = status, writing = writing)
+                StatusCard(status = status, writing = writing, nfcReady = nfcReady)
 
                 Text(
                     text = stringResource(R.string.current_setup),
@@ -362,11 +363,11 @@ internal fun MainScreen(
 }
 
 @Composable
-internal fun StatusCard(status: String, writing: Boolean) {
-    val containerColor = if (writing) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerLow
+internal fun StatusCard(status: String, writing: Boolean, nfcReady: Boolean) {
+    val containerColor = when {
+        writing -> MaterialTheme.colorScheme.primaryContainer
+        nfcReady -> MaterialTheme.colorScheme.surfaceContainerLow
+        else -> MaterialTheme.colorScheme.errorContainer
     }
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -380,12 +381,24 @@ internal fun StatusCard(status: String, writing: Boolean) {
             Surface(
                 modifier = Modifier.size(32.dp),
                 shape = CircleShape,
-                color = if (writing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+                color = when {
+                    writing -> MaterialTheme.colorScheme.primary
+                    nfcReady -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.error
+                }
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (writing) "…" else "✓",
-                        color = if (writing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                        text = when {
+                            writing -> "…"
+                            nfcReady -> "✓"
+                            else -> "!"
+                        },
+                        color = when {
+                            writing -> MaterialTheme.colorScheme.onPrimary
+                            nfcReady -> MaterialTheme.colorScheme.onSecondaryContainer
+                            else -> MaterialTheme.colorScheme.onError
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )

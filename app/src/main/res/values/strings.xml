@@ -81,8 +81,9 @@
     <string name="termux_failed">Не удалось запустить Termux: %1$s</string>
     <string name="write_button">Записать в кнопку</string>
     <string name="write_button_short">Записать</string>
-    <string name="ready">Готово</string>
+    <string name="ready">NFC готов</string>
     <string name="nfc_unavailable">NFC недоступен на этом устройстве</string>
+    <string name="nfc_disabled">NFC выключен</string>
     <string name="touch_tag">Поднесите любую кнопку к телефону</string>
     <string name="touch_target_button">Поднесите кнопку %1$d к телефону для сохранения</string>
     <string name="touch_target_button_clear">Поднесите кнопку %1$d к телефону для отключения</string>
