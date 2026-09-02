@@ -258,10 +258,7 @@ internal fun MainScreen(
                     .padding(horizontal = MdSpacing.medium, vertical = MdSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(MdSpacing.small)
             ) {
-                val sheetOpen = detailsSlot in 0 until SLOT_COUNT || customEditorSlot in 0 until SLOT_COUNT
-                if (!sheetOpen) {
-                    StatusCard(status = status, writing = writing)
-                }
+                StatusCard(status = status, writing = writing)
 
                 Text(
                     text = stringResource(R.string.current_setup),
