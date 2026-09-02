@@ -65,6 +65,8 @@ open class MainActivity : ComponentActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var readerModeActive = false
     private var readerModeCooldownUntil = 0L
+    private var lastForegroundTagId = ""
+    private var foregroundTagCooldownUntil = 0L
     private var buttonSetupComplete by mutableStateOf(false)
     private var learning by mutableStateOf(false)
     private var learningStep by mutableStateOf(0)
@@ -157,7 +159,12 @@ open class MainActivity : ComponentActivity() {
         super.onResume()
         loadConfiguredState()
         if (!writing) refreshNfcStatus()
-        if ((writing || learning) && nfcAdapter != null) enableReaderMode()
+        if (!isNfcTrigger
+            && nfcAdapter?.isEnabled == true
+            && (buttonSetupComplete || writing || learning)
+        ) {
+            enableReaderMode()
+        }
     }
 
     private fun refreshNfcStatus() {
@@ -183,6 +190,12 @@ open class MainActivity : ComponentActivity() {
     override fun onPause() {
         stopReaderMode()
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        stopReaderMode()
+        mainHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -303,16 +316,28 @@ open class MainActivity : ComponentActivity() {
             .apply()
         stopReaderMode()
         refreshNfcStatus()
+        if (!isNfcTrigger && buttonSetupComplete && nfcAdapter?.isEnabled == true) {
+            enableReaderMode()
+        }
     }
 
     private fun enableReaderMode() {
         val adapter = nfcAdapter
-        if (adapter == null || (!writing && !learning)) {
+        if (adapter == null
+            || readerModeActive
+            || (!writing && !learning && !buttonSetupComplete)
+        ) {
             return
         }
         adapter.enableReaderMode(
             this,
-            { tag -> if (learning) learnTag(tag) else writeTag(tag) },
+            { tag ->
+                when {
+                    learning -> learnTag(tag)
+                    writing -> writeTag(tag)
+                    else -> handleForegroundTag(tag)
+                }
+            },
             NfcAdapter.FLAG_READER_NFC_A
                 or NfcAdapter.FLAG_READER_NFC_B
                 or NfcAdapter.FLAG_READER_NFC_F
@@ -384,6 +409,7 @@ open class MainActivity : ComponentActivity() {
                 buttonSetupComplete = true
                 learningStep = SLOT_COUNT
                 learningStatus.value = getString(R.string.setup_complete)
+                enableReaderMode()
             } else {
                 stopReaderMode()
                 learnedTagIds.value = learned
@@ -395,9 +421,66 @@ open class MainActivity : ComponentActivity() {
 
     private fun stopReaderMode() {
         readerModeCooldownUntil = 0L
+        lastForegroundTagId = ""
+        foregroundTagCooldownUntil = 0L
         if (nfcAdapter != null && readerModeActive) {
             nfcAdapter?.disableReaderMode(this)
             readerModeActive = false
+        }
+    }
+
+    private fun handleForegroundTag(tag: Tag) {
+        val id = tagId(tag)
+        if (id.isEmpty() || isWriteBlocked()) return
+        if (preferences.getLong(SETUP_BLOCK_UNTIL, 0L) > System.currentTimeMillis()) return
+        val slotIndex = findConfiguredSlot(id) ?: return
+        val now = System.currentTimeMillis()
+        if (lastForegroundTagId == id && foregroundTagCooldownUntil > now) return
+        lastForegroundTagId = id
+        foregroundTagCooldownUntil = now + WRITE_AFTER_WINDOW_MS
+        val configuredActionIndex = preferences.getInt("action_$slotIndex", -1)
+        val configuredOption = ACTIONS.getOrNull(configuredActionIndex)
+        if (configuredOption == null) {
+            runOnUiThread {
+                if (readerModeActive && !writing && !isWriteBlocked()) {
+                    rememberDetectedEvent(slotIndex)
+                }
+            }
+            return
+        }
+
+        val configuredArgument = preferences.getString("argument_$slotIndex", "").orEmpty()
+        val configuredAction = configuredOption.code +
+            if (configuredOption.hasArgument) configuredArgument else ""
+        var ndef: Ndef? = null
+        try {
+            ndef = Ndef.get(tag)
+            if (ndef == null) return
+            ndef.connect()
+            val message = ndef.ndefMessage ?: return
+            var justWritten = false
+            val belongsToThisDevice = message.records.any { record ->
+                val payload = String(record.payload, StandardCharsets.UTF_8)
+                if (isJustWrittenPayload(payload)) {
+                    justWritten = true
+                    true
+                } else {
+                    NfcPayload.actionFor(payload, androidId) != null
+                }
+            }
+            if (justWritten || !belongsToThisDevice) return
+            runOnUiThread {
+                if (readerModeActive && !writing && !isWriteBlocked()) {
+                    rememberDetectedEvent(slotIndex)
+                    actionExecutor.execute(configuredAction)
+                }
+            }
+        } catch (_: Exception) {
+        } finally {
+            try {
+                ndef?.close()
+            } catch (_: IOException) {
+            }
         }
     }
 
@@ -493,6 +576,9 @@ open class MainActivity : ComponentActivity() {
                 mainHandler.postDelayed({
                     if (!writing && readerModeCooldownUntil == cooldownUntil) {
                         stopReaderMode()
+                        if (!isNfcTrigger && buttonSetupComplete && nfcAdapter?.isEnabled == true) {
+                            enableReaderMode()
+                        }
                     }
                 }, WRITE_AFTER_WINDOW_MS)
                 status.value = getString(
@@ -517,6 +603,9 @@ open class MainActivity : ComponentActivity() {
                 writeFeedbackToken.value = 0L
                 status.value = getString(R.string.write_failed, e.message)
                 toast(getString(R.string.write_failed, e.message))
+                if (!isNfcTrigger && buttonSetupComplete && nfcAdapter?.isEnabled == true) {
+                    enableReaderMode()
+                }
             }
         } finally {
             try {
@@ -568,24 +657,28 @@ open class MainActivity : ComponentActivity() {
 
     private fun handleNfcIntent(intent: Intent?) {
         if (intent == null) return
+        if (!isNfcTrigger && readerModeActive) return
         val action = intent.action
         if (action != NfcAdapter.ACTION_NDEF_DISCOVERED
             && action != NfcAdapter.ACTION_TAG_DISCOVERED
             && action != NfcAdapter.ACTION_TECH_DISCOVERED
         ) return
-        if (intent.type == DISABLED_MIME_TYPE) return
         val detectedTagId = (intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag)?.let(::tagId)
         if (writing || isWriteBlocked()) return
         val setupBlockUntil = preferences.getLong(SETUP_BLOCK_UNTIL, 0L)
         if (setupBlockUntil > System.currentTimeMillis()) return
         val slotIndex = detectedTagId?.let(::findConfiguredSlot)
         if (slotIndex == null) return
+        if (intent.type == DISABLED_MIME_TYPE) {
+            rememberDetectedEvent(slotIndex)
+            return
+        }
         val configuredActionIndex = preferences.getInt("action_$slotIndex", -1)
         val configuredOption = ACTIONS.getOrNull(configuredActionIndex)
-        if (configuredOption == null) return
-        val configuredArgument = preferences.getString("argument_$slotIndex", "").orEmpty()
-        val configuredAction = configuredOption.code +
-            if (configuredOption.hasArgument) configuredArgument else ""
+        val configuredAction = configuredOption?.let { option ->
+            val argument = preferences.getString("argument_$slotIndex", "").orEmpty()
+            option.code + if (option.hasArgument) argument else ""
+        }
         val rawMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
         if (rawMessages == null) return
         for (rawMessage in rawMessages) {
@@ -598,7 +691,7 @@ open class MainActivity : ComponentActivity() {
                 val payloadAction = NfcPayload.actionFor(payload, androidId)
                 if (payloadAction != null) {
                     rememberDetectedEvent(slotIndex)
-                    actionExecutor.execute(configuredAction)
+                    configuredAction?.let(actionExecutor::execute)
                     return
                 }
             }
