@@ -4,6 +4,8 @@ An open-source alternative client for configuring the Aaron Button case with thr
 
 The app supports English (the default language) and Russian. The language can be changed from the setup wizard or the main button settings screen.
 
+Aaron Button is a PITAKA phone case accessory. The official [PITAKA app](https://play.google.com/store/apps/details?id=com.pitaka.shortcuts) is available on Google Play.
+
 ## Privacy and project purpose
 
 The app is fully local and contains no unnecessary service layer around button setup:
