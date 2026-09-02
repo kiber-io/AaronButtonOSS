@@ -134,4 +134,5 @@ Aaron Button OSS handles button setup and basic actions. If you need more comple
 
 Aaron Button OSS intentionally does not include its own complex automation engine and remains a small button configurator.
 
+---
 *Note: this project was created with help from an LLM. The author is not an experienced Android developer and does not specialize in design; the goal was simply to get a working alternative to the official but inconvenient app. Suggestions for improving the code and interface are welcome.*
