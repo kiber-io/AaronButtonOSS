@@ -574,7 +574,7 @@ internal fun ButtonCard(
                 }
             }
 
-            if (action?.hasArgument == true && argument.isNotEmpty()) {
+            if (action != null) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
