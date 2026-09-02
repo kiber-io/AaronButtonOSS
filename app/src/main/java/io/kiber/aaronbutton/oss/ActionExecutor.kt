@@ -75,7 +75,10 @@ internal class ActionExecutor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "executeAction failed action=$logAction", e)
-            toast(activity.getString(R.string.action_failed, e.message))
+            toast(activity.getString(
+                R.string.action_failed,
+                localizedErrorMessage(activity, e, R.string.unknown_error)
+            ))
         }
     }
 
@@ -114,7 +117,10 @@ internal class ActionExecutor(
         try {
             toggleTorch()
         } catch (e: Exception) {
-            toast(activity.getString(R.string.action_failed, e.message))
+            toast(activity.getString(
+                R.string.action_failed,
+                localizedErrorMessage(activity, e, R.string.unknown_error)
+            ))
         }
     }
 

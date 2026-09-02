@@ -1,5 +1,6 @@
 package io.kiber.aaronbutton.oss
 
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.nfc.NdefMessage
@@ -27,10 +28,13 @@ open class MainActivity : ComponentActivity() {
 
     protected open val isNfcTrigger = false
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(localizedContext(newBase))
+    }
+
     companion object {
         private const val TAG = "AaronButtonOSS"
         private const val MIME_TYPE = "application/com.pitapolis.nfc"
-        private const val PREFS = "button_config"
         private const val BUTTON_SETUP_COMPLETE = "button_setup_complete"
         private const val SETUP_BLOCK_UNTIL = "setup_block_until"
         private const val SETUP_BLOCK_MS = 5000L
@@ -47,6 +51,7 @@ open class MainActivity : ComponentActivity() {
 
     private lateinit var preferences: SharedPreferences
     private lateinit var actionExecutor: ActionExecutor
+    private var language = AppLanguage.ENGLISH
     private var nfcAdapter: NfcAdapter? = null
     private var androidId = ""
     private var pendingPayload: String? = null
@@ -73,7 +78,8 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        preferences = getSharedPreferences(PREFS, MODE_PRIVATE)
+        preferences = getSharedPreferences(CONFIG_PREFS, MODE_PRIVATE)
+        language = appLanguage(this)
         actionExecutor = ActionExecutor(
             activity = this,
             preferences = preferences,
@@ -103,6 +109,7 @@ open class MainActivity : ComponentActivity() {
                     if (buttonSetupComplete) {
                         MainScreen(
                             status = status.value,
+                            language = language,
                             writing = writing,
                             configuredActions = configuredActions.value,
                             configuredArguments = configuredArguments.value,
@@ -113,14 +120,17 @@ open class MainActivity : ComponentActivity() {
                                 beginWrite(actionIndex, argument, targetSlot, onSuccess)
                             },
                             onCancelWrite = ::cancelWrite,
-                            writeFeedbackToken = writeFeedbackToken.value
+                            writeFeedbackToken = writeFeedbackToken.value,
+                            onLanguageSelected = ::changeLanguage
                         )
                     } else {
                         SetupWizard(
                             step = learningStep,
                             scanning = learning,
                             status = learningStatus.value,
-                            onScan = ::startLearning
+                            onScan = ::startLearning,
+                            language = language,
+                            onLanguageSelected = ::changeLanguage
                         )
                     }
                 }
@@ -128,6 +138,12 @@ open class MainActivity : ComponentActivity() {
         }
         if (buttonSetupComplete) handleNfcIntent(intent)
         if (isNfcTrigger && !actionExecutor.hasPendingPermission()) finish()
+    }
+
+    private fun changeLanguage(newLanguage: AppLanguage) {
+        if (newLanguage == language) return
+        setAppLanguage(this, newLanguage)
+        recreate()
     }
 
     override fun onResume() {
@@ -207,7 +223,7 @@ open class MainActivity : ComponentActivity() {
                 action.code + if (action.hasArgument) argument else ""
             }
         } catch (e: IllegalArgumentException) {
-            toast(e.message.orEmpty())
+            toast(localizedErrorMessage(this, e, R.string.invalid_custom_intent))
             return
         }
         pendingArgument = argument
@@ -373,7 +389,7 @@ open class MainActivity : ComponentActivity() {
             ndef = currentNdef
             if (currentNdef != null) {
                 currentNdef.connect()
-                if (!currentNdef.isWritable) throw IOException("NFC tag is read-only")
+                if (!currentNdef.isWritable) throw IOException(getString(R.string.nfc_tag_read_only))
                 if (currentNdef.maxSize < message.toByteArray().size) {
                     throw IOException(getString(R.string.nfc_tag_too_small))
                 }

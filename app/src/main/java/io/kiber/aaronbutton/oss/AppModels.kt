@@ -24,6 +24,23 @@ import androidx.compose.ui.unit.dp
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 
+internal class AppError(
+    val messageRes: Int,
+    vararg val messageArgs: Any
+) : IllegalArgumentException()
+
+internal fun localizedErrorMessage(
+    context: Context,
+    error: Throwable,
+    fallbackRes: Int
+): String {
+    return if (error is AppError) {
+        context.getString(error.messageRes, *error.messageArgs)
+    } else {
+        error.message ?: context.getString(fallbackRes)
+    }
+}
+
 internal const val SLOT_COUNT = 3
 internal const val HIGHLIGHT_DURATION_MS = 1500L
 internal const val CUSTOM_INTENT_PREFIX = "custom_intent_"
@@ -31,7 +48,7 @@ internal val CUSTOM_INTENT_EXTRA_TYPES = listOf("string", "int", "long", "boolea
 private val CUSTOM_INTENT_FIELDS = setOf("action", "data", "type", "package", "component", "flags")
 
 internal data class ActionOption(
-    val label: String,
+    val labelRes: Int,
     val code: String,
     val hasArgument: Boolean,
     val icon: ImageVector
@@ -78,16 +95,16 @@ internal fun loadInstalledApps(context: Context): List<AppChoice> {
 }
 
 internal val ACTIONS = listOf(
-    ActionOption("Flashlight", "flash_light", false, Icons.Filled.FlashOn),
-    ActionOption("Camera", "system_camera", false, Icons.Filled.CameraAlt),
-    ActionOption("Open app", "open_app_", true, Icons.Filled.Apps),
-    ActionOption("Open link", "open_link_", true, Icons.Filled.Link),
-    ActionOption("Run Termux command", "termux_", true, Icons.Filled.Code),
-    ActionOption("Custom intent", CUSTOM_INTENT_PREFIX, true, Icons.Filled.Code),
-    ActionOption("Sound: silent / ring", "sound", false, Icons.Filled.VolumeUp),
-    ActionOption("NFC settings", "nfc_settings", false, Icons.Filled.Settings),
-    ActionOption("Location settings", "location", false, Icons.Filled.LocationOn),
-    ActionOption("Airplane mode settings", "airplane", false, Icons.Filled.AirplanemodeActive)
+    ActionOption(R.string.action_flashlight, "flash_light", false, Icons.Filled.FlashOn),
+    ActionOption(R.string.action_camera, "system_camera", false, Icons.Filled.CameraAlt),
+    ActionOption(R.string.action_open_app, "open_app_", true, Icons.Filled.Apps),
+    ActionOption(R.string.action_open_link, "open_link_", true, Icons.Filled.Link),
+    ActionOption(R.string.action_termux, "termux_", true, Icons.Filled.Code),
+    ActionOption(R.string.action_custom_intent, CUSTOM_INTENT_PREFIX, true, Icons.Filled.Code),
+    ActionOption(R.string.action_sound, "sound", false, Icons.Filled.VolumeUp),
+    ActionOption(R.string.action_nfc_settings, "nfc_settings", false, Icons.Filled.Settings),
+    ActionOption(R.string.action_location_settings, "location", false, Icons.Filled.LocationOn),
+    ActionOption(R.string.action_airplane_mode, "airplane", false, Icons.Filled.AirplanemodeActive)
 )
 
 internal data class CustomIntentExtra(
@@ -122,7 +139,7 @@ internal object CustomIntentSpec {
             if (line.isEmpty()) return@forEachIndexed
             val separator = line.indexOf('=')
             if (separator <= 0) {
-                throw IllegalArgumentException("Invalid custom intent line ${index + 1}")
+                throw AppError(R.string.custom_intent_invalid_line, index + 1)
             }
             val rawKey = line.substring(0, separator).trim()
             val key = rawKey.lowercase(Locale.ROOT)
@@ -135,17 +152,17 @@ internal object CustomIntentSpec {
                 val type = if (typed) candidateType else "string"
                 val name = if (typed) typeAndName[1] else extraSpec
                 if (name.isBlank()) {
-                    throw IllegalArgumentException("Custom intent extra name is empty")
+                    throw AppError(R.string.custom_intent_extra_name_empty)
                 }
                 extras += CustomIntentExtra(type, name, value)
             } else if (key == "category") {
-                if (value.isEmpty()) throw IllegalArgumentException("Intent category is empty")
+                if (value.isEmpty()) throw AppError(R.string.custom_intent_category_empty)
                 categories += value
             } else if (key in CUSTOM_INTENT_FIELDS) {
-                if (key in fields) throw IllegalArgumentException("Duplicate custom intent field: $key")
+                if (key in fields) throw AppError(R.string.custom_intent_duplicate_field, key)
                 fields[key] = value
             } else {
-                throw IllegalArgumentException("Unknown custom intent field: $rawKey")
+                throw AppError(R.string.custom_intent_unknown_field, rawKey)
             }
         }
 
@@ -156,7 +173,7 @@ internal object CustomIntentSpec {
         val parsed = parse(definition)
 
         val action = parsed.fields["action"].orEmpty()
-        if (action.isEmpty()) throw IllegalArgumentException("Custom intent requires action=...")
+        if (action.isEmpty()) throw AppError(R.string.custom_intent_action_required)
         val intent = Intent(action)
         parsed.fields["data"]?.takeIf { it.isNotEmpty() }?.let { data ->
             val type = parsed.fields["type"]
@@ -166,7 +183,7 @@ internal object CustomIntentSpec {
         parsed.fields["package"]?.takeIf { it.isNotEmpty() }?.let(intent::setPackage)
         parsed.fields["component"]?.takeIf { it.isNotEmpty() }?.let { component ->
             intent.component = ComponentName.unflattenFromString(component)
-                ?: throw IllegalArgumentException("Invalid intent component: $component")
+                ?: throw AppError(R.string.custom_intent_component_invalid, component)
         }
         parsed.fields["flags"]?.takeIf { it.isNotEmpty() }?.let { flags ->
             intent.addFlags(parseFlags(flags))
@@ -176,14 +193,14 @@ internal object CustomIntentSpec {
             when (extra.type) {
                 "string" -> intent.putExtra(extra.name, extra.value)
                 "int" -> intent.putExtra(extra.name, extra.value.toIntOrNull()
-                    ?: throw IllegalArgumentException("Invalid int extra: ${extra.name}"))
+                    ?: throw AppError(R.string.custom_intent_int_invalid, extra.name))
                 "long" -> intent.putExtra(extra.name, extra.value.toLongOrNull()
-                    ?: throw IllegalArgumentException("Invalid long extra: ${extra.name}"))
+                    ?: throw AppError(R.string.custom_intent_long_invalid, extra.name))
                 "boolean" -> intent.putExtra(extra.name, parseBoolean(extra.value, extra.name))
                 "float" -> intent.putExtra(extra.name, extra.value.toFloatOrNull()
-                    ?: throw IllegalArgumentException("Invalid float extra: ${extra.name}"))
+                    ?: throw AppError(R.string.custom_intent_float_invalid, extra.name))
                 "double" -> intent.putExtra(extra.name, extra.value.toDoubleOrNull()
-                    ?: throw IllegalArgumentException("Invalid double extra: ${extra.name}"))
+                    ?: throw AppError(R.string.custom_intent_double_invalid, extra.name))
             }
         }
         return intent
@@ -193,7 +210,7 @@ internal object CustomIntentSpec {
         return when (value.lowercase(Locale.ROOT)) {
             "true" -> true
             "false" -> false
-            else -> throw IllegalArgumentException("Invalid boolean extra: $name")
+            else -> throw AppError(R.string.custom_intent_boolean_invalid, name)
         }
     }
 
@@ -203,7 +220,7 @@ internal object CustomIntentSpec {
         } else {
             value.toLongOrNull()?.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }?.toInt()
         }
-        return parsed ?: throw IllegalArgumentException("Invalid intent flags")
+        return parsed ?: throw AppError(R.string.custom_intent_flags_invalid)
     }
 }
 

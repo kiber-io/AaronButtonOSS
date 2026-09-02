@@ -1,134 +1,137 @@
 # Aaron Button OSS
 
-Опенсорсный альтернативный клиент для настройки чехла Aaron Button с тремя физическими NFC-кнопками.
+An open-source alternative client for configuring the Aaron Button case with three physical NFC buttons.
 
-## Приватность и цель проекта
+The app supports English (the default language) and Russian. The language can be changed from the setup wizard or the main button settings screen.
 
-Приложение полностью локальное и не содержит лишнего сервиса вокруг настройки кнопок:
+## Privacy and project purpose
 
-- нет аналитики, рекламы и трекинга;
-- нет аккаунтов и сбора пользовательских данных;
-- нет сетевого кода и разрешения на доступ в интернет;
-- настройки хранятся только на телефоне;
-- не требуется принимать пользовательское соглашение или проходить лишние экраны.
+The app is fully local and contains no unnecessary service layer around button setup:
 
-Проект создан, чтобы упростить настройку Aaron Button. В оригинальном приложении для этой базовой операции требуется пройти дополнительные шаги, включая принятие пользовательского соглашения. Здесь остаётся только выбрать действие и записать его в нужную кнопку.
+- no analytics, advertising, or tracking;
+- no accounts or collection of user data;
+- no network code or internet permission;
+- settings are stored only on the phone;
+- no user agreement or unnecessary setup screens are required.
 
-## Действия из оригинального приложения
+The project was created to simplify Aaron Button setup. The official app requires extra steps for this basic operation, including accepting a user agreement. Here, you only need to choose an action and write it to the desired button.
 
-| Действие | Описание |
+## Actions from the original app
+
+| Action | Description |
 | --- | --- |
-| Flashlight | Переключает фонарик камеры. |
-| Camera | Открывает системную камеру. |
-| Open app | Запускает выбранное приложение. |
-| Open link | Открывает указанную ссылку. |
-| Sound: silent / ring | Переключает обычный и беззвучный режим. |
-| NFC settings | Открывает настройки NFC. |
-| Location settings | Открывает настройки геолокации. |
-| Airplane mode settings | Открывает настройки авиарежима. |
+| Flashlight | Toggles the camera flashlight. |
+| Camera | Opens the system camera. |
+| Open app | Launches the selected app. |
+| Open link | Opens the specified link. |
+| Sound: silent / ring | Toggles normal and silent mode. |
+| NFC settings | Opens NFC settings. |
+| Location settings | Opens location settings. |
+| Airplane mode settings | Opens airplane mode settings. |
 
-Для фонарика требуется разрешение на камеру.
+Camera permission is required for the flashlight.
 
-## Дополнительные действия Aaron Button OSS
+## Additional Aaron Button OSS actions
 
-В OSS-клиенте добавлены два действия, которых нет в оригинальном приложении:
+The OSS client adds two actions that are not available in the original app:
 
-| Действие | Описание |
+| Action | Description |
 | --- | --- |
-| Run Termux command | Выполняет команду в Termux в фоновом режиме. |
-| Custom intent | Выполняет вручную настроенный Android Intent. |
+| Run Termux command | Executes a command in Termux in the background. |
+| Custom intent | Executes a manually configured Android Intent. |
 
 ### Termux
 
-Для действия `Run Termux command` должен быть установлен Termux. Команда отправляется в `com.termux.app.RunCommandService` и запускается без открытия окна Termux.
+Termux must be installed for the `Run Termux command` action. The command is sent to `com.termux.app.RunCommandService` and runs without opening the Termux window.
 
-При первом использовании Android может запросить разрешение `RUN_COMMAND`. Его нужно разрешить для Aaron Button OSS в системных настройках приложения.
+On first use, Android may request the `RUN_COMMAND` permission. Grant it to Aaron Button OSS in the app's system settings.
 
 ### Custom intent
 
-Custom intent настраивается отдельными полями в редакторе. Поддерживаются:
+Custom intent is configured through separate fields in the editor. The following are supported:
 
 - `Action`;
-- `Data URI` и `MIME type`;
+- `Data URI` and `MIME type`;
 - `Package`;
-- `Component` в формате `package/class`;
-- флаги в десятичном или hex-виде, например `0x10000000`;
-- любое количество категорий;
-- extras типов `string`, `int`, `long`, `boolean`, `float` и `double`.
+- `Component` in `package/class` format;
+- flags in decimal or hex format, for example `0x10000000`;
+- any number of categories;
+- extras of type `string`, `int`, `long`, `boolean`, `float`, or `double`.
 
-Например, для открытия Google достаточно указать:
+For example, to open Google, specify:
 
 ```text
 Action: android.intent.action.VIEW
 Data URI: https://google.com
 ```
 
-Перед сохранением приложение собирает и проверяет Intent. Если на телефоне нет приложения, способного его обработать, будет показана ошибка.
+Before saving, the app builds and validates the Intent. If no app on the phone can handle it, an error is shown.
 
-## Формат NFC
+## NFC format
 
-Приложение использует MIME type:
+The app uses the following MIME type:
 
 ```text
 application/com.pitapolis.nfc
 ```
 
-Payload записывается как NDEF MIME-запись в формате:
+The payload is written as an NDEF MIME record in this format:
 
 ```text
 pita://polis/<ANDROID_ID>:<ACTION>
 ```
 
-`ANDROID_ID` связывает запись с конкретным устройством. При чтении приложение проверяет этот ID и только после успешной проверки выполняет действие, сохранённое для найденного NFC ID кнопки.
+`ANDROID_ID` binds the record to a specific device. When reading it, the app checks this ID and only then executes the action saved for the NFC ID of the detected button.
 
-Для записи нужен NFC-тег с поддержкой NDEF или форматирования через `NdefFormatable`.
+Writing requires an NFC tag that supports NDEF or formatting through `NdefFormatable`.
 
-Важно: физические кнопки определяются по UID NFC-тега, а не по содержимому NDEF. Поэтому одинаковый записанный payload не смешивает кнопки, если мастер настройки прошёл корректно и UID тегов различаются.
+Important: physical buttons are identified by the NFC tag UID, not by the NDEF contents. Therefore, identical payloads do not mix buttons when the setup wizard has been completed correctly and the tag UIDs are different.
 
-## Сборка
+## Build
 
-Из корня проекта:
+From the project root:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-В Windows:
+On Windows:
 
 ```bat
 gradlew.bat assembleDebug
 ```
 
-Debug APK появится здесь:
+The debug APK will be created at:
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Для release-сборки используется `assembleRelease`, а APK будет находиться в `app/build/outputs/apk/release/`.
+For a release build, use `assembleRelease`. The APK will be located in `app/build/outputs/apk/release/`.
 
-## Ограничения
+## Limitations
 
-- Нужны телефон с NFC и совместимый чехол Aaron Button.
-- NFC должен быть включён в системе.
-- Первичное обучение нужно проходить именно в порядке Button 1 → Button 2 → Button 3.
+- A phone with NFC and a compatible Aaron Button case is required.
+- NFC must be enabled in the system.
+- Initial setup must be completed in the order Button 1 → Button 2 → Button 3.
 
-## Структура реализации
+## Implementation structure
 
-- `MainActivity.kt` — состояние экрана, обработка NFC и запись тегов.
-- `ActionExecutor.kt` — выполнение действий.
-- `ButtonUi.kt` — экран настройки, мастер обучения, карточки кнопок и bottom sheet-редакторы.
-- `AppModels.kt` — список действий, модели конфигурации, загрузка приложений и парсер Custom Intent.
-- `AppTheme.kt` — Material 3-тема и цветовые схемы.
-- `NfcTriggerActivity.kt` — прозрачная activity для обработки NFC-событий без показа главного экрана.
-- `NfcPayload.java` — кодирование и проверка payload NFC.
-- `ExampleUnitTest.java` — небольшой тест кодирования и проверки NFC payload.
-- `AndroidManifest.xml` — NFC, камера, Termux permission, фильтры NFC и запускатель приложения.
+- `MainActivity.kt` — screen state, NFC handling, and tag writing.
+- `ActionExecutor.kt` — action execution.
+- `ButtonUi.kt` — setup screen, learning wizard, button cards, and bottom-sheet editors.
+- `AppModels.kt` — action list, configuration models, app loading, and the Custom Intent parser.
+- `AppLocale.kt` — language selection and localized activity context.
+- `AppTheme.kt` — Material 3 theme and color schemes.
+- `NfcTriggerActivity.kt` — transparent activity for handling NFC events without showing the main screen.
+- `NfcPayload.java` — NFC payload encoding and validation.
+- `ExampleUnitTest.java` — a small test for NFC payload encoding and validation.
+- `AndroidManifest.xml` — NFC, camera, and Termux permissions, NFC filters, and the app launcher.
 
-## Расширенная автоматизация
+## Extended automation
 
-Aaron Button OSS отвечает за настройку кнопок и запуск базовых действий. Если нужна более сложная автоматизация, чем поддерживает этот проект, лучше использовать отдельное приложение-автоматизатор, например [MacroDroid](https://macrodroid.com/). Это может быть удобнее, если такой автоматизатор уже установлен и используется на телефоне.
+Aaron Button OSS handles button setup and basic actions. If you need more complex automation than this project supports, use a separate automation app such as [MacroDroid](https://macrodroid.com/). This may be more convenient if such an automation app is already installed and in use.
 
-Aaron Button OSS намеренно не включает собственный движок сложной автоматизации и остаётся небольшим конфигуратором кнопок.
+Aaron Button OSS intentionally does not include its own complex automation engine and remains a small button configurator.
 
-*Примечание: проект создан с помощью LLM. Автор не является опытным Android-разработчиком и не специализируется на дизайне; хотелось просто получить рабочую альтернативу официальному, но неудобному приложению. Предложения по улучшению кода и интерфейса приветствуются.*
+*Note: this project was created with help from an LLM. The author is not an experienced Android developer and does not specialize in design; the goal was simply to get a working alternative to the official but inconvenient app. Suggestions for improving the code and interface are welcome.*

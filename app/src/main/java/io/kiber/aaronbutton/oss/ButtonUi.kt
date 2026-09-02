@@ -92,17 +92,57 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
+private fun LanguageMenu(
+    language: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(language.shortName)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.language_russian)) },
+                onClick = {
+                    expanded = false
+                    onLanguageSelected(AppLanguage.RUSSIAN)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.language_english)) },
+                onClick = {
+                    expanded = false
+                    onLanguageSelected(AppLanguage.ENGLISH)
+                }
+            )
+        }
+    }
+}
+
+@Composable
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun SetupWizard(
     step: Int,
     scanning: Boolean,
     status: String,
-    onScan: () -> Unit
+    onScan: () -> Unit,
+    language: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit
 ) {
     val currentStep = step.coerceIn(0, SLOT_COUNT - 1)
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.setup_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.setup_title)) },
+                actions = {
+                    LanguageMenu(language, onLanguageSelected)
+                }
+            )
         }
     ) { contentPadding ->
         Column(
@@ -173,6 +213,7 @@ internal fun SetupWizard(
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun MainScreen(
     status: String,
+    language: AppLanguage,
     writing: Boolean,
     configuredActions: List<Int>,
     configuredArguments: List<String>,
@@ -181,7 +222,8 @@ internal fun MainScreen(
     highlightToken: Long,
     onWrite: (Int, String, Int?, () -> Unit) -> Unit,
     onCancelWrite: () -> Unit,
-    writeFeedbackToken: Long
+    writeFeedbackToken: Long,
+    onLanguageSelected: (AppLanguage) -> Unit
 ) {
     var selectedActionIndex by rememberSaveable { mutableStateOf(0) }
     var argument by rememberSaveable { mutableStateOf("") }
@@ -193,6 +235,9 @@ internal fun MainScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Aaron Button") },
+                actions = {
+                    LanguageMenu(language, onLanguageSelected)
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
@@ -474,13 +519,13 @@ internal fun ButtonCard(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = action.icon,
-                                contentDescription = action.label,
+                                contentDescription = stringResource(action.labelRes),
                                 tint = iconColor
                             )
                         }
                     }
                     Text(
-                        text = action.label,
+                        text = stringResource(action.labelRes),
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -542,6 +587,7 @@ internal fun CustomIntentEditorSheet(
     writeFeedbackToken: Long = 0L
 ) {
     val currentWriting by rememberUpdatedState(writing)
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { value -> !currentWriting || value != SheetValue.Hidden }
@@ -793,7 +839,13 @@ internal fun CustomIntentEditorSheet(
                             } else null
                             onSave(value, completion)
                         }
-                        .onFailure { error = it.message ?: "Invalid custom intent" }
+                        .onFailure {
+                            error = localizedErrorMessage(
+                                context,
+                                it,
+                                R.string.invalid_custom_intent
+                            )
+                        }
                 }
             ) {
                 Text(stringResource(if (slotIndex == null) R.string.custom_intent_save else R.string.save))
@@ -1207,7 +1259,7 @@ internal fun ActionDetailsSheet(
                     ) {
                         Icon(
                             imageVector = action.icon,
-                            contentDescription = action.label,
+                            contentDescription = stringResource(action.labelRes),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Column {
@@ -1222,7 +1274,10 @@ internal fun ActionDetailsSheet(
                             )
                         }
                     }
-                    Text(text = action.label, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = stringResource(action.labelRes),
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text(
                         text = editedArgument,
                         style = MaterialTheme.typography.bodyMedium,
@@ -1302,10 +1357,10 @@ internal fun ConfigureCard(
                         ) {
                             Icon(
                                 imageVector = selectedAction.icon,
-                                contentDescription = selectedAction.label
+                                contentDescription = stringResource(selectedAction.labelRes)
                             )
                             Text(
-                                text = selectedAction.label,
+                                text = stringResource(selectedAction.labelRes),
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -1325,7 +1380,7 @@ internal fun ConfigureCard(
                                         contentDescription = null
                                     )
                                 },
-                                text = { Text(option.label) },
+                                text = { Text(stringResource(option.labelRes)) },
                                 onClick = {
                                     onActionSelected(optionIndex)
                                     expanded = false
