@@ -235,12 +235,17 @@ open class MainActivity : ComponentActivity() {
         } else {
             pendingActionIndex = actionIndex.coerceIn(0, ACTIONS.lastIndex)
             val action = ACTIONS[pendingActionIndex]
-            val argument = if (action.hasArgument) rawArgument.trim() else ""
+            val argument = when {
+                action.code == CUSTOM_VALUE_CODE -> rawArgument
+                action.hasArgument -> rawArgument.trim()
+                else -> ""
+            }
             if (action.hasArgument && argument.isEmpty()) {
                 toast(getString(
                     when (action.code) {
                         "termux_" -> R.string.termux_argument_required
                         CUSTOM_INTENT_PREFIX -> R.string.custom_intent_required
+                        CUSTOM_VALUE_CODE -> R.string.custom_value_required
                         else -> R.string.argument_required
                     }
                 ))
@@ -248,10 +253,10 @@ open class MainActivity : ComponentActivity() {
             }
 
             val actionValue = try {
-                if (action.code == CUSTOM_INTENT_PREFIX) {
-                    CustomIntentSpec.toPayloadAction(argument)
-                } else {
-                    action.code + if (action.hasArgument) argument else ""
+                when {
+                    action.code == CUSTOM_INTENT_PREFIX -> CustomIntentSpec.toPayloadAction(argument)
+                    action.code == CUSTOM_VALUE_CODE -> argument
+                    else -> action.code + if (action.hasArgument) argument else ""
                 }
             } catch (e: IllegalArgumentException) {
                 toast(localizedErrorMessage(this, e, R.string.invalid_custom_intent))
@@ -617,7 +622,7 @@ open class MainActivity : ComponentActivity() {
             preferences.edit().remove(IGNORE_PAYLOAD).remove(IGNORE_PAYLOAD_UNTIL).apply()
             return false
         }
-        if (ignored != payload.trim()) return false
+        if (ignored != payload) return false
         preferences.edit().remove(IGNORE_PAYLOAD).remove(IGNORE_PAYLOAD_UNTIL).apply()
         return true
     }

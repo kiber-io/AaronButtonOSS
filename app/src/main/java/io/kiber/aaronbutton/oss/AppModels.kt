@@ -43,6 +43,7 @@ internal fun localizedErrorMessage(
 
 internal const val SLOT_COUNT = 3
 internal const val HIGHLIGHT_DURATION_MS = 1500L
+internal const val CUSTOM_VALUE_CODE = ""
 internal const val CUSTOM_INTENT_PREFIX = "custom_intent_"
 internal val CUSTOM_INTENT_EXTRA_TYPES = listOf("string", "int", "long", "boolean", "float", "double")
 private val CUSTOM_INTENT_FIELDS = setOf("action", "data", "type", "package", "component", "flags")
@@ -104,7 +105,8 @@ internal val ACTIONS = listOf(
     ActionOption(R.string.action_sound, "sound", false, Icons.Filled.VolumeUp),
     ActionOption(R.string.action_nfc_settings, "nfc_settings", false, Icons.Filled.Settings),
     ActionOption(R.string.action_location_settings, "location", false, Icons.Filled.LocationOn),
-    ActionOption(R.string.action_airplane_mode, "airplane", false, Icons.Filled.AirplanemodeActive)
+    ActionOption(R.string.action_airplane_mode, "airplane", false, Icons.Filled.AirplanemodeActive),
+    ActionOption(R.string.action_custom_value, CUSTOM_VALUE_CODE, true, Icons.Filled.Code)
 )
 
 internal data class CustomIntentExtra(

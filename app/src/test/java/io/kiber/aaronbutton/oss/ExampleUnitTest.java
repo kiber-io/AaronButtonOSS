@@ -18,6 +18,9 @@ public class ExampleUnitTest {
         assertEquals("flash_light", NfcPayload.actionFor("abc123:flash_light", "abc123"));
         assertEquals("open_link_https://example.com/A:B",
                 NfcPayload.actionFor(NfcPayload.encode("abc123", "open_link_https://example.com/A:B"), "abc123"));
+        String customValue = "hidden/action:custom\nvalue";
+        assertEquals(customValue,
+                NfcPayload.actionFor(NfcPayload.encode("abc123", customValue), "abc123"));
         assertNull(NfcPayload.actionFor(payload, "other"));
     }
 }

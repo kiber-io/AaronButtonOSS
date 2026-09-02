@@ -309,7 +309,10 @@ internal fun MainScreen(
                     scrollState = scrollState,
                     onActionSelected = {
                         selectedActionIndex = it
-                        if (!ACTIONS[it].hasArgument || ACTIONS[it].code == CUSTOM_INTENT_PREFIX) {
+                        if (!ACTIONS[it].hasArgument
+                            || ACTIONS[it].code == CUSTOM_INTENT_PREFIX
+                            || ACTIONS[it].code == CUSTOM_VALUE_CODE
+                        ) {
                             argument = ""
                         }
                     },
@@ -1279,12 +1282,14 @@ internal fun ActionDetailsSheet(
                                 Text(stringResource(when (action.code) {
                                     "termux_" -> R.string.termux_argument_hint
                                     "open_link_" -> R.string.link_hint
+                                    CUSTOM_VALUE_CODE -> R.string.custom_value_hint
                                     else -> R.string.argument_hint
                                 }))
                             },
-                            singleLine = true,
+                            singleLine = action.code != CUSTOM_VALUE_CODE,
+                            minLines = if (action.code == CUSTOM_VALUE_CODE) 3 else 1,
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = if (action.code == "termux_") {
+                                keyboardType = if (action.code == "termux_" || action.code == CUSTOM_VALUE_CODE) {
                                     KeyboardType.Text
                                 } else KeyboardType.Uri
                             )
@@ -1298,7 +1303,9 @@ internal fun ActionDetailsSheet(
                             modifier = Modifier.weight(1f),
                             enabled = !action.hasArgument || editedArgument.isNotBlank(),
                             onClick = {
-                                onSave(editedArgument.trim()) { saveCompleted = true }
+                                onSave(
+                                    if (action.code == CUSTOM_VALUE_CODE) editedArgument else editedArgument.trim()
+                                ) { saveCompleted = true }
                             }
                         ) {
                             Text(stringResource(R.string.save))
@@ -1403,6 +1410,7 @@ internal fun ConfigureCard(
 ) {
     val selectedAction = ACTIONS[actionIndex.coerceIn(0, ACTIONS.lastIndex)]
     val isCustomIntent = selectedAction.code == CUSTOM_INTENT_PREFIX
+    val isCustomValue = selectedAction.code == CUSTOM_VALUE_CODE
     val isOpenApp = selectedAction.code == "open_app_"
     var expanded by rememberSaveable { mutableStateOf(false) }
     var customEditorOpen by rememberSaveable { mutableStateOf(false) }
@@ -1534,12 +1542,14 @@ internal fun ConfigureCard(
                             Text(stringResource(when (selectedAction.code) {
                                 "termux_" -> R.string.termux_argument_hint
                                 "open_link_" -> R.string.link_hint
+                                CUSTOM_VALUE_CODE -> R.string.custom_value_hint
                                 else -> R.string.argument_hint
                             }))
                         },
-                        singleLine = true,
+                        singleLine = !isCustomValue,
+                        minLines = if (isCustomValue) 3 else 1,
                         keyboardOptions = KeyboardOptions(
-                            keyboardType = if (selectedAction.code == "termux_") {
+                            keyboardType = if (selectedAction.code == "termux_" || isCustomValue) {
                                 KeyboardType.Text
                             } else KeyboardType.Uri
                         )

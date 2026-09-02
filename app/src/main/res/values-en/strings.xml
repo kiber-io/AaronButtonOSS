@@ -37,6 +37,7 @@
     <string name="no_matching_apps">No matching apps</string>
     <string name="argument_required">Enter an app package or URL</string>
     <string name="custom_intent_required">Enter an intent definition</string>
+    <string name="custom_value_required">Enter a custom value</string>
     <string name="custom_intent_no_handler">No app can handle this intent</string>
     <string name="invalid_custom_intent">Invalid custom intent</string>
     <string name="custom_intent_invalid_line">Invalid custom intent line %1$d</string>
@@ -115,10 +116,12 @@
     <string name="action_open_link">Open link</string>
     <string name="action_termux">Run Termux command</string>
     <string name="action_custom_intent">Custom intent</string>
+    <string name="action_custom_value">Custom value</string>
     <string name="action_sound">Sound: silent / ring</string>
     <string name="action_nfc_settings">NFC settings</string>
     <string name="action_location_settings">Location settings</string>
     <string name="action_airplane_mode">Airplane mode settings</string>
+    <string name="custom_value_hint">Value to write to the NFC button</string>
     <string name="language_menu">Language</string>
     <string name="language_russian">Russian</string>
     <string name="language_english">English</string>

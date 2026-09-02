@@ -35,12 +35,17 @@ Camera permission is required for the flashlight.
 
 ## Additional Aaron Button OSS actions
 
-The OSS client adds two actions that are not available in the original app:
+The OSS client adds three actions that are not available in the original app:
 
 | Action | Description |
 | --- | --- |
 | Run Termux command | Executes a command in Termux in the background. |
 | Custom intent | Executes a manually configured Android Intent. |
+| Custom value | Writes an arbitrary action value into the original NFC payload. |
+
+`Custom value` is intended for experimenting with undocumented or unsupported
+action values. The value is written as-is; when the button is pressed, Aaron
+Button OSS can execute it only if it matches an action known to the app.
 
 ### Termux
 

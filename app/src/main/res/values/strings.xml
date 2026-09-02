@@ -37,6 +37,7 @@
     <string name="no_matching_apps">Подходящие приложения не найдены</string>
     <string name="argument_required">Введите пакет приложения или URL</string>
     <string name="custom_intent_required">Введите описание Intent</string>
+    <string name="custom_value_required">Введите кастомное значение</string>
     <string name="custom_intent_no_handler">Нет приложения, способного обработать этот Intent</string>
     <string name="invalid_custom_intent">Некорректный Custom Intent</string>
     <string name="custom_intent_invalid_line">Некорректная строка Custom Intent: %1$d</string>
@@ -115,10 +116,12 @@
     <string name="action_open_link">Открыть ссылку</string>
     <string name="action_termux">Выполнить команду Termux</string>
     <string name="action_custom_intent">Custom Intent</string>
+    <string name="action_custom_value">Кастомное значение</string>
     <string name="action_sound">Звук: беззвучный / обычный</string>
     <string name="action_nfc_settings">Настройки NFC</string>
     <string name="action_location_settings">Настройки геолокации</string>
     <string name="action_airplane_mode">Настройки авиарежима</string>
+    <string name="custom_value_hint">Значение для записи в NFC-кнопку</string>
     <string name="language_menu">Язык</string>
     <string name="language_russian">Русский</string>
     <string name="language_english">English</string>
