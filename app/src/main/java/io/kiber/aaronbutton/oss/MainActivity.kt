@@ -35,6 +35,8 @@ open class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "AaronButtonOSS"
         private const val MIME_TYPE = "application/com.pitapolis.nfc"
+        private const val DISABLED_MIME_TYPE = "application/vnd.aaronbutton.oss.disabled"
+        private const val DISABLED_ACTION = "disabled"
         private const val BUTTON_SETUP_COMPLETE = "button_setup_complete"
         private const val SETUP_BLOCK_UNTIL = "setup_block_until"
         private const val SETUP_BLOCK_MS = 5000L
@@ -58,6 +60,7 @@ open class MainActivity : ComponentActivity() {
     private var pendingActionIndex = 0
     private var pendingTargetSlot: Int? = null
     private var pendingArgument = ""
+    private var pendingClear = false
     private var pendingWriteSuccess: () -> Unit = {}
     private val mainHandler = Handler(Looper.getMainLooper())
     private var readerModeActive = false
@@ -118,6 +121,9 @@ open class MainActivity : ComponentActivity() {
                             highlightToken = highlightToken.value,
                             onWrite = { actionIndex, argument, targetSlot, onSuccess ->
                                 beginWrite(actionIndex, argument, targetSlot, onSuccess)
+                            },
+                            onClear = { slot, onSuccess ->
+                                beginWrite(-1, "", slot, onSuccess, clearButton = true)
                             },
                             onCancelWrite = ::cancelWrite,
                             writeFeedbackToken = writeFeedbackToken.value,
@@ -187,7 +193,8 @@ open class MainActivity : ComponentActivity() {
         actionIndex: Int,
         rawArgument: String,
         targetSlot: Int? = null,
-        onSuccess: () -> Unit = {}
+        onSuccess: () -> Unit = {},
+        clearButton: Boolean = false
     ) {
         pendingWriteSuccess = {}
         writeFeedbackToken.value = 0L
@@ -201,37 +208,51 @@ open class MainActivity : ComponentActivity() {
             return
         }
 
-        pendingActionIndex = actionIndex.coerceIn(0, ACTIONS.lastIndex)
-        val action = ACTIONS[pendingActionIndex]
-        val argument = if (action.hasArgument) rawArgument.trim() else ""
         pendingTargetSlot = targetSlot?.takeIf { it in 0 until SLOT_COUNT }
-        if (action.hasArgument && argument.isEmpty()) {
-            toast(getString(
-                when (action.code) {
-                    "termux_" -> R.string.termux_argument_required
-                    CUSTOM_INTENT_PREFIX -> R.string.custom_intent_required
-                    else -> R.string.argument_required
-                }
-            ))
-            return
-        }
-
-        val actionValue = try {
-            if (action.code == CUSTOM_INTENT_PREFIX) {
-                CustomIntentSpec.toPayloadAction(argument)
-            } else {
-                action.code + if (action.hasArgument) argument else ""
+        if (clearButton) {
+            if (pendingTargetSlot == null) return
+            pendingActionIndex = -1
+            pendingArgument = ""
+            pendingPayload = try {
+                NfcPayload.encode(androidId, DISABLED_ACTION)
+            } catch (e: IllegalArgumentException) {
+                toast(e.message.orEmpty())
+                return
             }
-        } catch (e: IllegalArgumentException) {
-            toast(localizedErrorMessage(this, e, R.string.invalid_custom_intent))
-            return
-        }
-        pendingArgument = argument
-        pendingPayload = try {
-            NfcPayload.encode(androidId, actionValue)
-        } catch (e: IllegalArgumentException) {
-            toast(e.message.orEmpty())
-            return
+            pendingClear = true
+        } else {
+            pendingActionIndex = actionIndex.coerceIn(0, ACTIONS.lastIndex)
+            val action = ACTIONS[pendingActionIndex]
+            val argument = if (action.hasArgument) rawArgument.trim() else ""
+            if (action.hasArgument && argument.isEmpty()) {
+                toast(getString(
+                    when (action.code) {
+                        "termux_" -> R.string.termux_argument_required
+                        CUSTOM_INTENT_PREFIX -> R.string.custom_intent_required
+                        else -> R.string.argument_required
+                    }
+                ))
+                return
+            }
+
+            val actionValue = try {
+                if (action.code == CUSTOM_INTENT_PREFIX) {
+                    CustomIntentSpec.toPayloadAction(argument)
+                } else {
+                    action.code + if (action.hasArgument) argument else ""
+                }
+            } catch (e: IllegalArgumentException) {
+                toast(localizedErrorMessage(this, e, R.string.invalid_custom_intent))
+                return
+            }
+            pendingArgument = argument
+            pendingPayload = try {
+                NfcPayload.encode(androidId, actionValue)
+            } catch (e: IllegalArgumentException) {
+                toast(e.message.orEmpty())
+                return
+            }
+            pendingClear = false
         }
         pendingWriteSuccess = onSuccess
         writing = true
@@ -242,7 +263,10 @@ open class MainActivity : ComponentActivity() {
             .putLong(WRITE_BLOCK_UNTIL, blockUntil)
             .apply()
         status.value = pendingTargetSlot?.let {
-            getString(R.string.touch_target_button, it + 1)
+            getString(
+                if (pendingClear) R.string.touch_target_button_clear else R.string.touch_target_button,
+                it + 1
+            )
         } ?: getString(R.string.touch_tag)
         enableReaderMode()
     }
@@ -253,6 +277,7 @@ open class MainActivity : ComponentActivity() {
         pendingPayload = null
         pendingTargetSlot = null
         pendingArgument = ""
+        pendingClear = false
         pendingWriteSuccess = {}
         writeFeedbackToken.value = 0L
         preferences.edit()
@@ -364,6 +389,7 @@ open class MainActivity : ComponentActivity() {
         if (!writing || payload == null) {
             return
         }
+        val clear = pendingClear
 
         var ndef: Ndef? = null
         var formatable: NdefFormatable? = null
@@ -374,7 +400,10 @@ open class MainActivity : ComponentActivity() {
             val targetSlot = pendingTargetSlot
             if (targetSlot != null && slotIndex != targetSlot) {
                 runOnUiThread {
-                    status.value = getString(R.string.wrong_button_for_save, targetSlot + 1)
+                    status.value = getString(
+                        if (clear) R.string.wrong_button_for_clear else R.string.wrong_button_for_save,
+                        targetSlot + 1
+                    )
                     writeFeedbackToken.value++
                 }
                 return
@@ -383,7 +412,12 @@ open class MainActivity : ComponentActivity() {
             val actionIndex = pendingActionIndex
             val argument = pendingArgument
             val message = NdefMessage(
-                arrayOf(NdefRecord.createMime(MIME_TYPE, payload.toByteArray(StandardCharsets.UTF_8)))
+                arrayOf(
+                    NdefRecord.createMime(
+                        if (clear) DISABLED_MIME_TYPE else MIME_TYPE,
+                        payload.toByteArray(StandardCharsets.UTF_8)
+                    )
+                )
             )
             val currentNdef = Ndef.get(tag)
             ndef = currentNdef
@@ -402,25 +436,34 @@ open class MainActivity : ComponentActivity() {
             }
             val eventToken = System.currentTimeMillis()
             val cooldownUntil = eventToken + WRITE_AFTER_WINDOW_MS
-            preferences.edit()
+            val preferencesEditor = preferences.edit()
                 .putString("tag_id_$slotIndex", id)
-                .putInt("action_$slotIndex", actionIndex)
-                .putString("argument_$slotIndex", argument)
                 .putInt(LAST_SLOT, slotIndex)
                 .putLong(LAST_EVENT, eventToken)
                 .putBoolean(WRITE_IN_PROGRESS, false)
                 .putLong(WRITE_BLOCK_UNTIL, cooldownUntil)
-                .putString(IGNORE_PAYLOAD, payload)
-                .putLong(IGNORE_PAYLOAD_UNTIL, System.currentTimeMillis() + IGNORE_PAYLOAD_WINDOW_MS)
-                .apply()
+            if (clear) {
+                preferencesEditor
+                    .remove("action_$slotIndex")
+                    .remove("argument_$slotIndex")
+                    .remove(IGNORE_PAYLOAD)
+                    .remove(IGNORE_PAYLOAD_UNTIL)
+            } else {
+                preferencesEditor
+                    .putInt("action_$slotIndex", actionIndex)
+                    .putString("argument_$slotIndex", argument)
+                    .putString(IGNORE_PAYLOAD, payload)
+                    .putLong(IGNORE_PAYLOAD_UNTIL, System.currentTimeMillis() + IGNORE_PAYLOAD_WINDOW_MS)
+            }
+            preferencesEditor.apply()
             runOnUiThread {
                 val completion = pendingWriteSuccess
                 pendingWriteSuccess = {}
                 configuredActions.value = configuredActions.value.toMutableList().also {
-                    it[slotIndex] = actionIndex
+                    it[slotIndex] = if (clear) -1 else actionIndex
                 }
                 configuredArguments.value = configuredArguments.value.toMutableList().also {
-                    it[slotIndex] = argument
+                    it[slotIndex] = if (clear) "" else argument
                 }
                 configuredTagIds.value = configuredTagIds.value.toMutableList().also {
                     it[slotIndex] = id
@@ -435,7 +478,11 @@ open class MainActivity : ComponentActivity() {
                         stopReaderMode()
                     }
                 }, WRITE_AFTER_WINDOW_MS)
-                status.value = getString(R.string.write_success, slotIndex + 1)
+                status.value = getString(
+                    if (clear) R.string.clear_success else R.string.write_success,
+                    slotIndex + 1
+                )
+                pendingClear = false
                 completion()
             }
         } catch (e: Exception) {
@@ -448,6 +495,7 @@ open class MainActivity : ComponentActivity() {
                 stopReaderMode()
                 writing = false
                 pendingTargetSlot = null
+                pendingClear = false
                 pendingWriteSuccess = {}
                 writeFeedbackToken.value = 0L
                 status.value = getString(R.string.write_failed, e.message)
@@ -508,6 +556,7 @@ open class MainActivity : ComponentActivity() {
             && action != NfcAdapter.ACTION_TAG_DISCOVERED
             && action != NfcAdapter.ACTION_TECH_DISCOVERED
         ) return
+        if (intent.type == DISABLED_MIME_TYPE) return
         val detectedTagId = (intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag)?.let(::tagId)
         if (writing || isWriteBlocked()) return
         val setupBlockUntil = preferences.getLong(SETUP_BLOCK_UNTIL, 0L)

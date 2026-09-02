@@ -85,10 +85,14 @@
     <string name="nfc_unavailable">NFC is unavailable on this device</string>
     <string name="touch_tag">Hold any button near the phone</string>
     <string name="touch_target_button">Hold Button %1$d near the phone to save</string>
+    <string name="touch_target_button_clear">Hold Button %1$d near the phone to disable it</string>
     <string name="wrong_button_for_save">That is not Button %1$d. Hold the same button to save</string>
+    <string name="wrong_button_for_clear">That is not Button %1$d. Hold the same button to disable it</string>
     <string name="saving_button">Saving Button %1$d</string>
     <string name="cancel">Cancel</string>
     <string name="write_success">Button %1$d updated</string>
+    <string name="clear_success">Button %1$d disabled</string>
+    <string name="disable_button">Disable</string>
     <string name="writing_status">Writing to button</string>
     <string name="nfc_status">NFC status</string>
     <string name="write_failed">Write failed: %1$s</string>

@@ -85,10 +85,14 @@
     <string name="nfc_unavailable">NFC недоступен на этом устройстве</string>
     <string name="touch_tag">Поднесите любую кнопку к телефону</string>
     <string name="touch_target_button">Поднесите кнопку %1$d к телефону для сохранения</string>
+    <string name="touch_target_button_clear">Поднесите кнопку %1$d к телефону для отключения</string>
     <string name="wrong_button_for_save">Это не кнопка %1$d. Для сохранения удерживайте ту же кнопку</string>
+    <string name="wrong_button_for_clear">Это не кнопка %1$d. Для отключения удерживайте ту же кнопку</string>
     <string name="saving_button">Сохранение кнопки %1$d</string>
     <string name="cancel">Отмена</string>
     <string name="write_success">Кнопка %1$d обновлена</string>
+    <string name="clear_success">Кнопка %1$d отключена</string>
+    <string name="disable_button">Отключить</string>
     <string name="writing_status">Запись в кнопку</string>
     <string name="nfc_status">Состояние NFC</string>
     <string name="write_failed">Не удалось записать: %1$s</string>

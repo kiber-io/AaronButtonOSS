@@ -221,6 +221,7 @@ internal fun MainScreen(
     highlightedSlot: Int?,
     highlightToken: Long,
     onWrite: (Int, String, Int?, () -> Unit) -> Unit,
+    onClear: (Int, () -> Unit) -> Unit,
     onCancelWrite: () -> Unit,
     writeFeedbackToken: Long,
     onLanguageSelected: (AppLanguage) -> Unit
@@ -333,6 +334,9 @@ internal fun MainScreen(
                         onSave = { editedArgument, onSuccess ->
                             onWrite(detailsActionIndex, editedArgument, detailsSlot, onSuccess)
                         },
+                        onClear = { onSuccess ->
+                            onClear(detailsSlot, onSuccess)
+                        },
                         onCancelWrite = onCancelWrite
                     )
                 }
@@ -349,6 +353,9 @@ internal fun MainScreen(
                     onDismiss = { customEditorSlot = -1 },
                     onSave = { value, onSuccess ->
                         onWrite(configuredActions[editorSlot], value, editorSlot, onSuccess ?: {})
+                    },
+                    onClear = { onSuccess ->
+                        onClear(editorSlot, onSuccess)
                     },
                     onCancelWrite = onCancelWrite
                 )
@@ -473,7 +480,7 @@ internal fun ButtonCard(
             }
             .clip(MaterialTheme.shapes.large)
             .clickable(
-                enabled = action?.hasArgument == true && argument.isNotEmpty(),
+                enabled = action != null,
                 role = Role.Button,
                 onClick = onClick
             ),
@@ -580,6 +587,7 @@ internal fun CustomIntentEditorSheet(
     definition: String,
     onDismiss: () -> Unit,
     onSave: (String, (() -> Unit)?) -> Unit,
+    onClear: (() -> Unit) -> Unit,
     writing: Boolean = false,
     slotIndex: Int? = null,
     status: String = "",
@@ -598,6 +606,7 @@ internal fun CustomIntentEditorSheet(
     var typeMenuIndex by remember { mutableStateOf(-1) }
     var error by remember { mutableStateOf<String?>(null) }
     var saveCompleted by rememberSaveable { mutableStateOf(false) }
+    var clearRequested by rememberSaveable { mutableStateOf(false) }
     val sheetScroll = rememberScrollState()
 
     LaunchedEffect(saveCompleted) {
@@ -616,7 +625,7 @@ internal fun CustomIntentEditorSheet(
         sheetState = sheetState
     ) {
         when {
-            saveCompleted -> SavedButtonContent(slotIndex ?: 0)
+            saveCompleted -> SavedButtonContent(slotIndex ?: 0, cleared = clearRequested)
             writing -> {
             SavingButtonContent(
                 slotIndex = slotIndex ?: 0,
@@ -828,32 +837,64 @@ internal fun CustomIntentEditorSheet(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    val value = draft.toDefinition()
-                    runCatching { CustomIntentSpec.buildIntent(value) }
-                        .onSuccess {
-                            val completion: (() -> Unit)? = if (slotIndex != null) {
-                                { saveCompleted = true }
-                            } else null
-                            onSave(value, completion)
-                        }
-                        .onFailure {
-                            error = localizedErrorMessage(
-                                context,
-                                it,
-                                R.string.invalid_custom_intent
-                            )
-                        }
+            if (slotIndex == null) {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        val value = draft.toDefinition()
+                        runCatching { CustomIntentSpec.buildIntent(value) }
+                            .onSuccess { onSave(value, null) }
+                            .onFailure {
+                                error = localizedErrorMessage(
+                                    context,
+                                    it,
+                                    R.string.invalid_custom_intent
+                                )
+                            }
+                    }
+                ) {
+                    Text(stringResource(R.string.custom_intent_save))
                 }
-            ) {
-                Text(stringResource(if (slotIndex == null) R.string.custom_intent_save else R.string.save))
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(MdSpacing.small)
+                ) {
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val value = draft.toDefinition()
+                            runCatching { CustomIntentSpec.buildIntent(value) }
+                                .onSuccess { onSave(value) { saveCompleted = true } }
+                                .onFailure {
+                                    error = localizedErrorMessage(
+                                        context,
+                                        it,
+                                        R.string.invalid_custom_intent
+                                    )
+                                }
+                        }
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                    OutlinedButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            onClear {
+                                clearRequested = true
+                                saveCompleted = true
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.disable_button))
+                    }
+                }
             }
                 }
             }
         }
     }
+
 }
 
 @Composable
@@ -1028,7 +1069,7 @@ internal fun AppPickerSheet(
 }
 
 @Composable
-internal fun SavedButtonContent(slotIndex: Int) {
+internal fun SavedButtonContent(slotIndex: Int, cleared: Boolean = false) {
     val checkScale = remember { Animatable(0.6f) }
 
     LaunchedEffect(Unit) {
@@ -1057,7 +1098,10 @@ internal fun SavedButtonContent(slotIndex: Int) {
                 }
         )
         Text(
-            text = stringResource(R.string.write_success, slotIndex + 1),
+            text = stringResource(
+                if (cleared) R.string.clear_success else R.string.write_success,
+                slotIndex + 1
+            ),
             style = MaterialTheme.typography.titleLarge
         )
     }
@@ -1129,6 +1173,7 @@ internal fun ActionDetailsSheet(
     writeFeedbackToken: Long,
     onDismiss: () -> Unit,
     onSave: (String, () -> Unit) -> Unit,
+    onClear: (() -> Unit) -> Unit,
     onCancelWrite: () -> Unit
 ) {
     val action = ACTIONS[actionIndex]
@@ -1136,6 +1181,7 @@ internal fun ActionDetailsSheet(
     var appPickerOpen by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var saveCompleted by rememberSaveable { mutableStateOf(false) }
+    var clearRequested by rememberSaveable { mutableStateOf(false) }
     val currentWriting by rememberUpdatedState(writing)
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -1173,7 +1219,7 @@ internal fun ActionDetailsSheet(
         sheetState = sheetState
     ) {
         when {
-            saveCompleted -> SavedButtonContent(slotIndex)
+            saveCompleted -> SavedButtonContent(slotIndex, cleared = clearRequested)
             writing -> SavingButtonContent(
                 slotIndex = slotIndex,
                 status = status,
@@ -1234,14 +1280,30 @@ internal fun ActionDetailsSheet(
                             )
                         )
                     }
-                    Button(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !action.hasArgument || editedArgument.isNotBlank(),
-                        onClick = {
-                            onSave(editedArgument.trim()) { saveCompleted = true }
-                        }
+                        horizontalArrangement = Arrangement.spacedBy(MdSpacing.small)
                     ) {
-                        Text(stringResource(R.string.save))
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            enabled = !action.hasArgument || editedArgument.isNotBlank(),
+                            onClick = {
+                                onSave(editedArgument.trim()) { saveCompleted = true }
+                            }
+                        ) {
+                            Text(stringResource(R.string.save))
+                        }
+                        TextButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                onClear {
+                                    clearRequested = true
+                                    saveCompleted = true
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.disable_button))
+                        }
                     }
                 }
             }
@@ -1287,11 +1349,30 @@ internal fun ActionDetailsSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = onDismiss) {
+                        TextButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = onDismiss
+                        ) {
                             Text(stringResource(R.string.close))
                         }
-                        Button(onClick = { editing = true }) {
-                            Text(stringResource(R.string.edit_action))
+                        if (action.hasArgument) {
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = { editing = true }
+                            ) {
+                                Text(stringResource(R.string.edit_action))
+                            }
+                        }
+                        TextButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                onClear {
+                                    clearRequested = true
+                                    saveCompleted = true
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.disable_button))
                         }
                     }
                 }
@@ -1475,7 +1556,8 @@ internal fun ConfigureCard(
             onSave = { value, _ ->
                 onArgumentChanged(value)
                 customEditorOpen = false
-            }
+            },
+            onClear = {}
         )
     }
 }

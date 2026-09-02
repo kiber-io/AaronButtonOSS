@@ -52,6 +52,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="pita" android:host="polis" />
             </intent-filter>
+            <intent-filter android:priority="1000">
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.aaronbutton.oss.disabled" />
+            </intent-filter>
         </activity>
     </application>
 
